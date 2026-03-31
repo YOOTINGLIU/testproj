@@ -68,7 +68,7 @@
     </style>
 </head>
 <body>
-    <h1>螺絲零件管理系統</h1>
+    <h1>螺絲零件管理系統（僅查詢版）</h1>
     <div class="tabs">
         <div class="tab active" onclick="switchTab('inventory')">📦 庫存資料</div>
         <div class="tab" onclick="switchTab('shipments')">🚚 出貨表</div>
@@ -80,13 +80,10 @@
         <table id="inventory-table" border="1" cellpadding="8" cellspacing="0">
             <thead>
                 <tr>
-                    <th>編號</th>
-                    <th>類型</th>
                     <th>規格</th>
-                    <th>長度</th>
+                    <th>類型</th>
+                    <th>材質</th>
                     <th>數量</th>
-                    <th>庫存</th>
-                    <th>單價</th>
                 </tr>
             </thead>
             <tbody></tbody>
@@ -119,36 +116,25 @@
             document.getElementById(tabName).classList.add('active');
         }
 
-        // 載入庫存資料
+        // 載入庫存資料（使用本地 JSON）
         async function loadInventory() {
             const loading = document.getElementById('loading');
             const table = document.getElementById('inventory-table');
             const tbody = table.querySelector('tbody');
 
             try {
+                // 嘗試從本地資料庫獲取
                 const response = await fetch('/api/items');
-                const result = await response.json();
-                const data = result.data || [];
-
-                tbody.innerHTML = '';
-
-                data.forEach(item => {
-                    const row = document.createElement('tr');
-                    row.innerHTML = `
-                        <td>${item.part_number || item.編號 || ''}</td>
-                        <td>${item.type || item.類型 || ''}</td>
-                        <td>${item.規格 || ''}</td>
-                        <td>${item.age || ''}</td>
-                        <td>${item.size || ''}</td>
-                        <td>${item.quantity || item.庫存 || ''}</td>
-                        <td>${item.price || item.單價 || ''}</td>
-                    `;
-                    tbody.appendChild(row);
-                });
-
-                loading.style.display = 'none';
-                table.style.display = 'table';
-
+                if (response.ok) {
+                    const result = await response.json();
+                    const data = result.data || [];
+                    renderInventory(data);
+                } else {
+                    // 回退方案：直接載入本地 JSON
+                    const fallbackResponse = await fetch('data.json');
+                    const data = await fallbackResponse.json();
+                    renderInventory(data);
+                }
             } catch (err) {
                 loading.style.display = 'none';
                 table.style.display = 'none';
@@ -156,39 +142,71 @@
             }
         }
 
-        // 載出入貨資料
+        // 渲染庫存表格
+        function renderInventory(data) {
+            const tbody = document.getElementById('inventory-table').querySelector('tbody');
+            tbody.innerHTML = '';
+
+            data.forEach(item => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${item.規格 || item.part_number || ''}</td>
+                    <td>${item.類型 || item.type || ''}</td>
+                    <td>${item.材質 || item.material || ''}</td>
+                    <td>${item.數量 || item.stock || ''}</td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            document.getElementById('loading').style.display = 'none';
+            table.style.display = 'table';
+        }
+
+        // 載出入貨資料（使用本地 JSON）
         async function loadShipments() {
             const loading = document.getElementById('loading-shipments');
             const table = document.getElementById('shipments-table');
             const tbody = table.querySelector('tbody');
 
             try {
+                // 嘗試從本地資料庫獲取
                 const response = await fetch('/api/logs');
-                const result = await response.json();
-                const data = result.data || [];
-
-                tbody.innerHTML = '';
-
-                data.forEach(log => {
-                    const row = document.createElement('tr');
-                    row.innerHTML = `
-                        <td>${log.part_number || log.規格 || ''}</td>
-                        <td>${log.log_type || log.類型 || ''}</td>
-                        <td>${log.quantity || ''}</td>
-                        <td>${log.date || ''}</td>
-                        <td>${log.customer || ''}</td>
-                    `;
-                    tbody.appendChild(row);
-                });
-
-                loading.style.display = 'none';
-                table.style.display = 'table';
-
+                if (response.ok) {
+                    const result = await response.json();
+                    const data = result.data || [];
+                    renderShipments(data);
+                } else {
+                    // 回退方案：直接載入本地 JSON
+                    const fallbackResponse = await fetch('logs.json');
+                    const data = await fallbackResponse.json();
+                    renderShipments(data);
+                }
             } catch (err) {
                 loading.style.display = 'none';
                 table.style.display = 'none';
                 console.error('載出入貨記錄失敗:', err);
             }
+        }
+
+        // 渲染出貨表格
+        function renderShipments(data) {
+            const tbody = document.getElementById('shipments-table').querySelector('tbody');
+            tbody.innerHTML = '';
+
+            data.forEach(log => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${log.規格 || log.part_number || ''}</td>
+                    <td>${log.類型 || log.log_type || ''}</td>
+                    <td>${log.數量 || log.quantity || ''}</td>
+                    <td>${log.日期 || log.date || ''}</td>
+                    <td>${log.客戶 || log.customer || ''}</td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            document.getElementById('loading-shipments').style.display = 'none';
+            table.style.display = 'table';
         }
 
         // 載入頁面時執行
