@@ -181,9 +181,15 @@
 
                 data.forEach(item => {
                     const row = document.createElement('tr');
+                    let typeColor = '';
+                    if (item.類型 === '出貨') {
+                        typeColor = 'color: #d32f2f; font-weight: bold;';
+                    } else if (item.類型 === '入倉') {
+                        typeColor = 'color: #388e3c; font-weight: bold;';
+                    }
                     row.innerHTML = `
                         <td>${item.編號 || ''}</td>
-                        <td>${item.類型 || ''}</td>
+                        <td style="${typeColor}">${item.類型 || ''}</td>
                         <td>${item.數量 || ''}</td>
                         <td>${item.日期 || ''}</td>
                         <td>${item.客戶 || ''}</td>
