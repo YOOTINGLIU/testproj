@@ -2,31 +2,108 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>項目列表</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border: 1px solid #ddd;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .loading {
+            color: #666;
+            margin: 20px 0;
+        }
+    </style>
 </head>
 <body>
     <h1>項目列表</h1>
-    <table border="1" cellpadding="10" cellspacing="0">
-        <tr>
-            <th>項目</th>
-            <th>編號</th>
-            <th>數量</th>
-        </tr>
-        <tr>
-            <td></td>
-            <td></td>
-            <td></td>
-        </tr>
-        <tr>
-            <td></td>
-            <td></td>
-            <td></td>
-        </tr>
-        <tr>
-            <td></td>
-            <td></td>
-            <td></td>
-        </tr>
+    <div id="loading" class="loading">載入中...</div>
+    <table id="items-table" border="1" cellpadding="10" cellspacing="0" style="display: none;">
+        <thead>
+            <tr>
+                <th>項目</th>
+                <th>編號</th>
+                <th>數量</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td></td>
+                <td></td>
+                <td></td>
+            </tr>
+        </tbody>
     </table>
+    <div id="error" style="color: red; margin-top: 20px; display: none;"></div>
+
+    <script>
+        async function loadItems() {
+            const loading = document.getElementById('loading');
+            const table = document.getElementById('items-table');
+            const tbody = table.querySelector('tbody');
+            const error = document.getElementById('error');
+
+            try {
+                // 先試著從 API 取資料
+                const response = await fetch('/api/items');
+                let data;
+
+                if (response.ok) {
+                    data = await response.json();
+                } else {
+                    // 如果 API 失敗，試著載入 JSON（暫存用）
+                    console.log('API 失敗，嘗試載入 JSON 檔案');
+                    const jsonResponse = await fetch('/data.json');
+                    if (jsonResponse.ok) {
+                        data = await jsonResponse.json();
+                    } else {
+                        throw new Error('無法載入資料');
+                    }
+                }
+
+                // 清空現有內容
+                tbody.innerHTML = '';
+
+                // 填入資料
+                if (data.items) {
+                    data.items.forEach(item => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${item.name || ''}</td>
+                            <td>${item.code || ''}</td>
+                            <td>${item.quantity || ''}</td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                }
+
+                loading.style.display = 'none';
+                table.style.display = 'table';
+
+            } catch (err) {
+                loading.style.display = 'none';
+                error.style.display = 'block';
+                error.textContent = '載入失敗: ' + err.message;
+            }
+        }
+
+        // 載入頁面時執行
+        loadItems();
+    </script>
 </body>
 </html>
