@@ -4,39 +4,38 @@ const mysql = require('mysql2/promise');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const databaseUrl = process.env.DATABASE_URL_Ting;
+// hardcoded 對應到 Zeabur 的正確配置
+const config = {
+    host: '172.235.171.79',
+    port: 30663,
+    user: 'root',
+    password: 'drqRB19fy3pa87nUVe6Z4v2IKY50uPAl'
+};
 
-console.log('💡 解析資料庫連線字串...');
-const user = databaseUrl.split(':')[0];
-const password = databaseUrl.split(':')[1];
-const hostPort = databaseUrl.match(/@tcp\(([^:]+):(\d+)\)/)[1].split(':');
-const host = hostPort[0];
-const port = hostPort[1];
-const database = databaseUrl.split('/').pop();
-
-console.log(`   用戶: ${user}`);
-console.log(`   主機: ${host}:${port}`);
-console.log(`   資料庫: ${database}\n`);
+console.log('💡 啟動 SQL 模式伺服器...');
+console.log(`   連接資料庫: ${config.host}:${config.port}`);
+console.log('   資料庫: openclaw\n');
 
 let connection;
 
 async function getConnection() {
     if (!connection || connection._closed) {
         connection = await mysql.createConnection({
-            host,
-            port: parseInt(port, 10),
-            user,
-            password: pass,
+            host: config.host,
+            port: config.port,
+            user: config.user,
+            password: config.password,
             charset: 'utf8mb4'
         });
-        await connection.query(`USE \`${database}\``);
-        console.log('✅ 資料庫已選擇');
+        await connection.query('USE openclaw');
+        console.log('✅ 資料庫連線成功');
     }
     return connection;
 }
 
 app.use(express.json());
 
+// 健康檢查
 app.get('/api/health', async (req, res) => {
     try {
         const conn = await getConnection();
@@ -44,15 +43,16 @@ app.get('/api/health', async (req, res) => {
         res.json({
             status: 'healthy',
             message: '資料庫連線正常',
-            provider: 'SQL Server',
-            host, port, database
+            provider: 'MySQL',
+            database: 'openclaw'
         });
     } catch (e) {
-        res.status(500).json({ error: '無法連接資料庫', details: e.message });
+        res.status(500).json({ error: e.message });
     }
 });
 
-app.get('/api/items/:format?', async (req, res) => {
+// 取得所有項目
+app.get('/api/items', async (req, res) => {
     try {
         const conn = await getConnection();
         const [rows] = await conn.query(
@@ -60,43 +60,39 @@ app.get('/api/items/:format?', async (req, res) => {
         );
         res.json({ data: rows });
     } catch (error) {
-        res.status(500).json({ error: '取得資料失敗', details: error.message });
+        res.status(500).json({ error: error.message });
     }
 });
 
-app.get('/api/logs/:format?', async (req, res) => {
+// 取得出貨記錄
+app.get('/api/logs', async (req, res) => {
     try {
         const conn = await getConnection();
         const [rows] = await conn.query(
-            'SELECT id, part_number, quantity, log_type, date, customer FROM logs ORDER BY created_at DESC'
+            'SELECT id, part_number, quantity, log_type, date, customer FROM logs ORDER BY date DESC, id DESC'
         );
         res.json({ data: rows });
     } catch (error) {
-        res.status(500).json({ error: '取得資料失敗', details: error.message });
+        res.status(500).json({ error: error.message });
     }
 });
 
+// 取得統計
 app.get('/api/statistics', async (req, res) => {
     try {
         const conn = await getConnection();
         const [result] = await conn.query('SELECT COALESCE(SUM(stock), 0) as total FROM parts');
-        const totalStock = result[0].total;
-        const [logs] = await conn.query('SELECT COUNT(*) as count FROM logs');
+        const [logsCount] = await conn.query('SELECT COUNT(*) as count FROM logs');
         res.json({
             totalItems: 8,
-            totalStock,
-            logsCount: logs[0].count
+            totalStock: result[0].total,
+            logsCount: logsCount[0].count
         });
     } catch (error) {
-        res.status(500).json({ error: '取得統計失敗', details: error.message });
+        res.status(500).json({ error: error.message });
     }
 });
 
 app.listen(PORT, () => {
-    console.log(`📊 SQL 模式伺服器已啟動`);
-    console.log(`📡 API: http://localhost:${PORT}`);
-    console.log(`   - /api/health`);
-    console.log(`   - /api/items`);
-    console.log(`   - /api/logs`);
-    console.log(`   - /api/statistics`);
+    console.log(`✅ 伺服器啟動成功: http://localhost:${PORT}`);
 });
