@@ -84,13 +84,9 @@
                     <th>類型</th>
                     <th>規格</th>
                     <th>長度</th>
-                    <th>直徑</th>
-                    <th>頭型</th>
-                    <th>材質</th>
+                    <th>數量</th>
                     <th>庫存</th>
                     <th>單價</th>
-                    <th>最小訂購量</th>
-                    <th>備註</th>
                 </tr>
             </thead>
             <tbody></tbody>
@@ -99,16 +95,15 @@
 
     <!-- 出貨表 -->
     <div id="shipments" class="data-container">
-        <div id="loading-shipments" class="loading">載出貨表資料中...</div>
+        <div id="loading-shipments" class="loading">載出入貨表資料中...</div>
         <table id="shipments-table" border="1" cellpadding="8" cellspacing="0">
             <thead>
                 <tr>
-                    <th>編號</th>
+                    <th>規格</th>
                     <th>類型</th>
                     <th>數量</th>
                     <th>日期</th>
                     <th>客戶</th>
-                    <th>備註</th>
                 </tr>
             </thead>
             <tbody></tbody>
@@ -118,11 +113,8 @@
     <script>
         // 切換 tab 功能
         function switchTab(tabName) {
-            // 更新 tab 狀態
             document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
             event.target.classList.add('active');
-
-            // 切換顯示內容
             document.querySelectorAll('.data-container').forEach(container => container.classList.remove('active'));
             document.getElementById(tabName).classList.add('active');
         }
@@ -134,25 +126,22 @@
             const tbody = table.querySelector('tbody');
 
             try {
-                const response = await fetch('/data.json');
-                const data = await response.json();
+                const response = await fetch('/api/items');
+                const result = await response.json();
+                const data = result.data || [];
 
                 tbody.innerHTML = '';
 
                 data.forEach(item => {
                     const row = document.createElement('tr');
                     row.innerHTML = `
-                        <td>${item.編號 || ''}</td>
-                        <td>${item.類型 || ''}</td>
+                        <td>${item.part_number || item.編號 || ''}</td>
+                        <td>${item.type || item.類型 || ''}</td>
                         <td>${item.規格 || ''}</td>
-                        <td>${item.長度 || ''}</td>
-                        <td>${item.直徑 || ''}</td>
-                        <td>${item.頭型 || ''}</td>
-                        <td>${item.材質 || ''}</td>
-                        <td>${item.庫存數量 || ''}</td>
-                        <td>${item.單價 || ''}</td>
-                        <td>${item.最小訂購量 || ''}</td>
-                        <td>${item.備註 || ''}</td>
+                        <td>${item.age || ''}</td>
+                        <td>${item.size || ''}</td>
+                        <td>${item.quantity || item.庫存 || ''}</td>
+                        <td>${item.price || item.單價 || ''}</td>
                     `;
                     tbody.appendChild(row);
                 });
@@ -167,33 +156,27 @@
             }
         }
 
-        // 載出入貨表資料
+        // 載出入貨資料
         async function loadShipments() {
             const loading = document.getElementById('loading-shipments');
             const table = document.getElementById('shipments-table');
             const tbody = table.querySelector('tbody');
 
             try {
-                const response = await fetch('/logs.json');
-                const data = await response.json();
+                const response = await fetch('/api/logs');
+                const result = await response.json();
+                const data = result.data || [];
 
                 tbody.innerHTML = '';
 
-                data.forEach(item => {
+                data.forEach(log => {
                     const row = document.createElement('tr');
-                    let typeColor = '';
-                    if (item.類型 === '出貨') {
-                        typeColor = 'color: #d32f2f; font-weight: bold;';
-                    } else if (item.類型 === '入倉') {
-                        typeColor = 'color: #388e3c; font-weight: bold;';
-                    }
                     row.innerHTML = `
-                        <td>${item.編號 || ''}</td>
-                        <td style="${typeColor}">${item.類型 || ''}</td>
-                        <td>${item.數量 || ''}</td>
-                        <td>${item.日期 || ''}</td>
-                        <td>${item.客戶 || ''}</td>
-                        <td>${item.備註 || ''}</td>
+                        <td>${log.part_number || log.規格 || ''}</td>
+                        <td>${log.log_type || log.類型 || ''}</td>
+                        <td>${log.quantity || ''}</td>
+                        <td>${log.date || ''}</td>
+                        <td>${log.customer || ''}</td>
                     `;
                     tbody.appendChild(row);
                 });
@@ -204,7 +187,7 @@
             } catch (err) {
                 loading.style.display = 'none';
                 table.style.display = 'none';
-                console.error('載出入貨表失敗:', err);
+                console.error('載出入貨記錄失敗:', err);
             }
         }
 
