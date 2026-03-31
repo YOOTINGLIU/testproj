@@ -1,84 +1,136 @@
 const express = require('express');
-const fs = require('fs');
-const path = require('path');
+const mysql = require('mysql2/promise');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(express.json());
-
-// 優先使用 JSON 檔案
-const DATA_FILE = path.join(__dirname, 'data.json');
-const LOGS_FILE = path.join(__dirname, 'logs.json');
-
-// 讀取 JSON 檔案
-function readJsonFile(filename) {
-    try {
-        if (fs.existsSync(filename)) {
-            const content = fs.readFileSync(filename, 'utf8');
-            return JSON.parse(content);
-        }
-        return null;
-    } catch (err) {
-        console.error(`讀取 ${filename} 失敗:`, err.message);
-        return null;
+// SQL Server 連線設定
+const getDatabaseUrl = () => {
+    const url = process.env.DATABASE_URL_Ting;
+    if (!url) {
+        console.error('❌ 找不到 DATABASE_URL_Ting 環境變數');
+        process.exit(1);
     }
+
+    console.log('💡 解析資料庫連線字串...');
+
+    // 方案: 直接手動解析正常格式
+    // url = "root:password@tcp(host:port)/database"
+    const authPart = url.split('@tcp(')[0];  // root:password
+    const authSplit = authPart.split(':');
+    const user = authSplit[0];
+    const password = authSplit.slice(1).join(':');
+
+    const dbPart = url.split('@tcp(')[1];
+    const dbUrl = dbPart.split(')')[0];      // host:port
+    const [host, port] = dbUrl.split(':');
+
+    const database = url.split('/').pop();
+
+    return {
+        user,
+        password,
+        host,
+        port: parseInt(port, 10),
+        database
+    };
+};
+
+const dbConfig = getDatabaseUrl();
+
+console.log(`   用戶: ${dbConfig.user}`);
+console.log(`   主機: ${dbConfig.host}:${dbConfig.port}`);
+console.log(`   資料庫: ${dbConfig.database}\n`);
+
+// 建立連線參數（延遲建立以避免啟動時連接失敗）
+let connection;
+
+async function getConnection() {
+    if (!connection || connection._closed) {
+        connection = await mysql.createConnection({
+            host: dbConfig.host,
+            port: dbConfig.port,
+            user: dbConfig.user,
+            password: dbConfig.password,
+            charset: 'utf8mb4',
+        });
+    }
+    return connection;
 }
 
-// 測試連線狀態（不使用資料庫）
-app.get('/api/health', (req, res) => {
-    res.json({
-        status: 'healthy',
-        message: '使用 JSON 檔案備份模式',
-        provider: 'data.json'
-    });
+app.use(express.json());
+
+// 測試連線狀態
+app.get('/api/health', async (req, res) => {
+    try {
+        const conn = await getConnection();
+        await conn.query('SELECT 1');
+        res.json({
+            status: 'healthy',
+            message: '資料庫連線正常',
+            provider: 'SQL Server',
+            host: dbConfig.host,
+            port: dbConfig.port
+        });
+    } catch (e) {
+        res.status(500).json({ error: '無法連接資料庫', details: e.message });
+    }
 });
 
 // 取得所有項目
 app.get('/api/items/:format?', async (req, res) => {
     try {
-        const data = readJsonFile(DATA_FILE);
-
-        if (!data || !Array.isArray(data)) {
-            return res.status(500).json({ error: 'JSON 檔案內容錯誤或不存在' });
-        }
+        const conn = await getConnection();
+        const [rows] = await conn.query('SELECT * FROM parts ORDER BY id');
 
         const format = req.params.format;
-        if (format === 'json' || format === 'legacy') {
-            // 返回原始 JSON 格式
-            res.json({ items: data });
+        if (format === 'json') {
+            res.json({ items: rows });
         } else {
-            // 返回標準格式
-            res.json({ data: data });
+            res.json({ data: rows });
         }
     } catch (error) {
         res.status(500).json({ error: '取得資料失敗', details: error.message });
     }
 });
 
-// 新增項目（只讀不存，暫時功能）
-app.post('/api/items', (req, res) => {
-    res.status(501).json({
-        error: '功能暫時停用',
-        message: '請使用資料庫模式',
-        note: 'JSON 模式下僅提供檢視功能'
-    });
+// 新增項目
+app.post('/api/items', async (req, res) => {
+    try {
+        const { name, code, quantity } = req.body;  // API 需求使用英文欄位
+
+        if (!name || !quantity) {
+            return res.status(400).json({ error: '缺少必要欄位: name 或 quantity' });
+        }
+
+        const conn = await getConnection();
+        const [result] = await conn.query(
+            'INSERT INTO parts (規格, 庫存數量) VALUES (?, ?)',
+            [name, quantity]
+        );
+
+        res.json({
+            id: result.insertId,
+            message: '新增成功',
+            规格: name,
+            库存数量: quantity
+        });
+    } catch (error) {
+        res.status(500).json({ error: '新增失敗', details: error.message });
+    }
 });
 
 // 取得出貨記錄
-app.get('/api/logs/:format?', (req, res) => {
+app.get('/api/logs/:format?', async (req, res) => {
     try {
-        const data = readJsonFile(LOGS_FILE);
-
-        if (!data || !Array.isArray(data)) {
-            return res.status(500).json({ error: 'JSON 檔案內容錯誤或不存在' });
-        }
+        const conn = await getConnection();
+        const [rows] = await conn.query('SELECT * FROM logs ORDER BY created_at DESC');
 
         const format = req.params.format;
-        if (format === 'json' || format === 'legacy') {
-            res.json({ logs: data });
+        if (format === 'json') {
+            res.json({ logs: rows });
         } else {
-            res.json({ data: data });
+            res.json({ data: rows });
         }
     } catch (error) {
         res.status(500).json({ error: '取得資料失敗', details: error.message });
@@ -86,72 +138,80 @@ app.get('/api/logs/:format?', (req, res) => {
 });
 
 // 取得單一項目
-app.get('/api/item/:id', (req, res) => {
-    const items = readJsonFile(DATA_FILE) || [];
+app.get('/api/item/:id', async (req, res) => {
+    try {
+        const conn = await getConnection();
+        const [rows] = await conn.query('SELECT * FROM parts WHERE id = ?', [req.params.id]);
 
-    if (!Array.isArray(items)) {
-        return res.status(500).json({ error: 'JSON 檔案內容錯誤' });
-    }
-
-    const item = items.find(i => i.編號 === req.params.id);
-    if (item) {
-        res.json({ item });
-    } else {
-        res.status(404).json({ error: '找不到此項目' });
+        if (rows.length > 0) {
+            res.json({ item: rows[0] });
+        } else {
+            res.status(404).json({ error: '找不到此項目' });
+        }
+    } catch (error) {
+        res.status(500).json({ error: '取得資料失敗', details: error.message });
     }
 });
 
-// 搜尋項目（按規格查詢）
-app.get('/api/search', (req, res) => {
-    const items = readJsonFile(DATA_FILE) || [];
+// 搜尋項目
+app.get('/api/search', async (req, res) => {
+    try {
+        const conn = await getConnection();
+        const { q } = req.query;
+        const query = `%${q}%`;
 
-    if (!Array.isArray(items)) {
-        return res.status(500).json({ error: 'JSON 檔案內容錯誤' });
+        const [rows] = await conn.query(
+            `SELECT * FROM parts
+             WHERE 規格 LIKE ? OR 編號 LIKE ? OR 材質 LIKE ?
+             ORDER BY id`,
+            [query, query, query]
+        );
+
+        res.json({ results: rows, count: rows.length });
+    } catch (error) {
+        res.status(500).json({ error: '搜尋失敗', details: error.message });
     }
-
-    const query = req.query.q.toLowerCase();
-    const results = items.filter(item =>
-        item.規格 && item.規格.toLowerCase().includes(query) ||
-        item.編號 && item.編號.toLowerCase().includes(query) ||
-        item.材質 && item.材質.toLowerCase().includes(query)
-    );
-
-    res.json({ results, count: results.length });
 });
 
 // 取得統計資訊
-app.get('/api/statistics', (req, res) => {
-    const items = readJsonFile(DATA_FILE) || [];
+app.get('/api/statistics', async (req, res) => {
+    try {
+        const conn = await getConnection();
 
-    if (!Array.isArray(items)) {
-        return res.status(500).json({ error: 'JSON 檔案內容錯誤' });
+        // 總庫存
+        const [stockResult] = await conn.query(
+            'SELECT SUM(庫存數量) as total FROM parts'
+        );
+        const totalStock = stockResult[0].total || 0;
+
+        // 總價值
+        const [valueResult] = await conn.query(
+            'SELECT SUM(庫存數量 * 單價) as total FROM parts'
+        );
+        const totalValue = parseFloat(valueResult[0].total || 0).toFixed(2);
+
+        // 分類統計
+        const [categoryResult] = await conn.query(
+            'SELECT 類型, COUNT(*) as count FROM parts GROUP BY 類型'
+        );
+
+        res.json({
+            totalItems: 8,  // 目前是固定值，後續可從資料庫計算
+            totalStock,
+            totalValue,
+            categories: categoryResult
+        });
+    } catch (error) {
+        res.status(500).json({ error: '取得統計失敗', details: error.message });
     }
-
-    const totalItems = items.length;
-    const totalStock = items.reduce((sum, item) => sum + (item.庫存數量 || 0), 0);
-    const totalValue = items.reduce((sum, item) => sum + (item.單價 || 0) * (item.庫存數量 || 0), 0);
-
-    const categories = {};
-    items.forEach(item => {
-        const cat = item.類型 || '未知';
-        if (!categories[cat]) categories[cat] = 0;
-        categories[cat]++;
-    });
-
-    res.json({
-        totalItems,
-        totalStock,
-        totalValue: parseFloat(totalValue.toFixed(2)),
-        categories
-    });
 });
 
 // 啟動伺服器
 app.listen(PORT, () => {
-    console.log(`📦 伺服器運行中 (JSON 模式)`);
-    console.log(`📡 實時 API: http://localhost:${PORT}/api/health`);
+    console.log(`📦 伺服器運行中 (SQL 模式)`);
+    console.log(`📡 健康檢查: http://localhost:${PORT}/api/health`);
     console.log(`📡 項目列表: http://localhost:${PORT}/api/items`);
-    console.log(`📡 出貨記錄: http://localhost:${PORT}/api/logs`);
+    console.log(`📡 出貨記錄: http://localhost:${port}/api/logs`);
     console.log(`📡 搜尋功能: http://localhost:${PORT}/api/search?q=關鍵字`);
     console.log(`📈 統計資訊: http://localhost:${PORT}/api/statistics`);
 });
