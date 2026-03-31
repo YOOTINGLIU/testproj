@@ -104,6 +104,7 @@
             <thead>
                 <tr>
                     <th>編號</th>
+                    <th>類型</th>
                     <th>數量</th>
                     <th>日期</th>
                     <th>客戶</th>
@@ -182,6 +183,7 @@
                     const row = document.createElement('tr');
                     row.innerHTML = `
                         <td>${item.編號 || ''}</td>
+                        <td>${item.類型 || ''}</td>
                         <td>${item.數量 || ''}</td>
                         <td>${item.日期 || ''}</td>
                         <td>${item.客戶 || ''}</td>
