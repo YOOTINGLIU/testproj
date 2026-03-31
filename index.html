@@ -7,7 +7,7 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            max-width: 800px;
+            max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
         }
@@ -15,14 +15,17 @@
             width: 100%;
             border-collapse: collapse;
             margin-top: 20px;
+            font-size: 12px;
         }
         th, td {
-            padding: 12px;
+            padding: 8px;
             text-align: left;
             border: 1px solid #ddd;
+            word-wrap: break-word;
         }
         th {
             background-color: #f2f2f2;
+            font-weight: bold;
         }
         .loading {
             color: #666;
@@ -36,9 +39,17 @@
     <table id="items-table" border="1" cellpadding="10" cellspacing="0" style="display: none;">
         <thead>
             <tr>
-                <th>項目</th>
                 <th>編號</th>
-                <th>數量</th>
+                <th>類型</th>
+                <th>規格</th>
+                <th>長度</th>
+                <th>直徑</th>
+                <th>頭型</th>
+                <th>材質</th>
+                <th>庫存</th>
+                <th>單價</th>
+                <th>最小訂購量</th>
+                <th>備註</th>
             </tr>
         </thead>
         <tbody>
@@ -80,13 +91,21 @@
                 tbody.innerHTML = '';
 
                 // 填入資料
-                if (data.items) {
-                    data.items.forEach(item => {
+                if (data) {  // 現在 data 是陣列格式
+                    data.forEach(item => {
                         const row = document.createElement('tr');
                         row.innerHTML = `
-                            <td>${item.name || ''}</td>
-                            <td>${item.code || ''}</td>
-                            <td>${item.quantity || ''}</td>
+                            <td>${item.編號 || ''}</td>
+                            <td>${item.類型 || ''}</td>
+                            <td>${item.規格 || ''}</td>
+                            <td>${item.長度 || ''}</td>
+                            <td>${item.直徑 || ''}</td>
+                            <td>${item.頭型 || ''}</td>
+                            <td>${item.材質 || ''}</td>
+                            <td>${item.庫存數量 || ''}</td>
+                            <td>${item.單價 || ''}</td>
+                            <td>${item.最小訂購量 || ''}</td>
+                            <td>${item.備註 || ''}</td>
                         `;
                         tbody.appendChild(row);
                     });
