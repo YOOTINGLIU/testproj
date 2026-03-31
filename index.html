@@ -3,126 +3,206 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>項目列表</title>
+    <title>螺絲零件管理系統</title>
     <style>
         body {
             font-family: Arial, sans-serif;
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
             padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #ddd;
+        }
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            border-bottom: none;
+            font-weight: bold;
+            background: #f5f5f5;
+            margin-right: 5px;
+            border-radius: 5px 5px 0 0;
+        }
+        .tab.active {
+            background: #fff;
+            border-color: #ddd;
+            border-bottom-color: #fff;
+            position: relative;
+            top: 2px;
         }
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 20px;
-            font-size: 12px;
+            margin-top: 10px;
+            font-size: 11px;
         }
         th, td {
-            padding: 8px;
+            padding: 6px;
             text-align: left;
             border: 1px solid #ddd;
             word-wrap: break-word;
+            max-width: 150px;
         }
         th {
             background-color: #f2f2f2;
             font-weight: bold;
         }
+        .data-container {
+            display: none;
+        }
+        .data-container.active {
+            display: block;
+        }
         .loading {
             color: #666;
             margin: 20px 0;
+            text-align: center;
         }
     </style>
 </head>
 <body>
-    <h1>項目列表</h1>
-    <div id="loading" class="loading">載入中...</div>
-    <table id="items-table" border="1" cellpadding="10" cellspacing="0" style="display: none;">
-        <thead>
-            <tr>
-                <th>編號</th>
-                <th>類型</th>
-                <th>規格</th>
-                <th>長度</th>
-                <th>直徑</th>
-                <th>頭型</th>
-                <th>材質</th>
-                <th>庫存</th>
-                <th>單價</th>
-                <th>最小訂購量</th>
-                <th>備註</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr>
-                <td></td>
-                <td></td>
-                <td></td>
-            </tr>
-        </tbody>
-    </table>
-    <div id="error" style="color: red; margin-top: 20px; display: none;"></div>
+    <h1>螺絲零件管理系統</h1>
+    <div class="tabs">
+        <div class="tab active" onclick="switchTab('inventory')">📦 庫存資料</div>
+        <div class="tab" onclick="switchTab('shipments')">🚚 出貨表</div>
+    </div>
+
+    <!-- 庫存資料 -->
+    <div id="inventory" class="data-container active">
+        <div id="loading" class="loading">載入庫存資料中...</div>
+        <table id="inventory-table" border="1" cellpadding="8" cellspacing="0">
+            <thead>
+                <tr>
+                    <th>編號</th>
+                    <th>類型</th>
+                    <th>規格</th>
+                    <th>長度</th>
+                    <th>直徑</th>
+                    <th>頭型</th>
+                    <th>材質</th>
+                    <th>庫存</th>
+                    <th>單價</th>
+                    <th>最小訂購量</th>
+                    <th>備註</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <!-- 出貨表 -->
+    <div id="shipments" class="data-container">
+        <div id="loading-shipments" class="loading">載出貨表資料中...</div>
+        <table id="shipments-table" border="1" cellpadding="8" cellspacing="0">
+            <thead>
+                <tr>
+                    <th>編號</th>
+                    <th>數量</th>
+                    <th>日期</th>
+                    <th>客戶</th>
+                    <th>備註</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
 
     <script>
-        async function loadItems() {
+        // 切換 tab 功能
+        function switchTab(tabName) {
+            // 更新 tab 狀態
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            event.target.classList.add('active');
+
+            // 切換顯示內容
+            document.querySelectorAll('.data-container').forEach(container => container.classList.remove('active'));
+            document.getElementById(tabName).classList.add('active');
+        }
+
+        // 載入庫存資料
+        async function loadInventory() {
             const loading = document.getElementById('loading');
-            const table = document.getElementById('items-table');
+            const table = document.getElementById('inventory-table');
             const tbody = table.querySelector('tbody');
-            const error = document.getElementById('error');
 
             try {
-                // 先試著從 API 取資料
-                const response = await fetch('/api/items');
-                let data;
+                const response = await fetch('/data.json');
+                const data = await response.json();
 
-                if (response.ok) {
-                    data = await response.json();
-                } else {
-                    // 如果 API 失敗，試著載入 JSON（暫存用）
-                    console.log('API 失敗，嘗試載入 JSON 檔案');
-                    const jsonResponse = await fetch('/data.json');
-                    if (jsonResponse.ok) {
-                        data = await jsonResponse.json();
-                    } else {
-                        throw new Error('無法載入資料');
-                    }
-                }
-
-                // 清空現有內容
                 tbody.innerHTML = '';
 
-                // 填入資料
-                if (data) {  // 現在 data 是陣列格式
-                    data.forEach(item => {
-                        const row = document.createElement('tr');
-                        row.innerHTML = `
-                            <td>${item.編號 || ''}</td>
-                            <td>${item.類型 || ''}</td>
-                            <td>${item.規格 || ''}</td>
-                            <td>${item.長度 || ''}</td>
-                            <td>${item.直徑 || ''}</td>
-                            <td>${item.頭型 || ''}</td>
-                            <td>${item.材質 || ''}</td>
-                            <td>${item.庫存數量 || ''}</td>
-                            <td>${item.單價 || ''}</td>
-                            <td>${item.最小訂購量 || ''}</td>
-                            <td>${item.備註 || ''}</td>
-                        `;
-                        tbody.appendChild(row);
-                    });
-                }
+                data.forEach(item => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${item.編號 || ''}</td>
+                        <td>${item.類型 || ''}</td>
+                        <td>${item.規格 || ''}</td>
+                        <td>${item.長度 || ''}</td>
+                        <td>${item.直徑 || ''}</td>
+                        <td>${item.頭型 || ''}</td>
+                        <td>${item.材質 || ''}</td>
+                        <td>${item.庫存數量 || ''}</td>
+                        <td>${item.單價 || ''}</td>
+                        <td>${item.最小訂購量 || ''}</td>
+                        <td>${item.備註 || ''}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
 
                 loading.style.display = 'none';
                 table.style.display = 'table';
 
             } catch (err) {
                 loading.style.display = 'none';
-                error.style.display = 'block';
-                error.textContent = '載入失敗: ' + err.message;
+                table.style.display = 'none';
+                console.error('載入庫存失敗:', err);
+            }
+        }
+
+        // 載出入貨表資料
+        async function loadShipments() {
+            const loading = document.getElementById('loading-shipments');
+            const table = document.getElementById('shipments-table');
+            const tbody = table.querySelector('tbody');
+
+            try {
+                const response = await fetch('/logs.json');
+                const data = await response.json();
+
+                tbody.innerHTML = '';
+
+                data.forEach(item => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${item.編號 || ''}</td>
+                        <td>${item.數量 || ''}</td>
+                        <td>${item.日期 || ''}</td>
+                        <td>${item.客戶 || ''}</td>
+                        <td>${item.備註 || ''}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+
+                loading.style.display = 'none';
+                table.style.display = 'table';
+
+            } catch (err) {
+                loading.style.display = 'none';
+                table.style.display = 'none';
+                console.error('載出入貨表失敗:', err);
             }
         }
 
         // 載入頁面時執行
-        loadItems();
+        loadInventory();
+        loadShipments();
     </script>
 </body>
 </html>
