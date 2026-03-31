@@ -7,7 +7,7 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            max-width: 1400px;
+            max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
         }
@@ -68,7 +68,7 @@
     </style>
 </head>
 <body>
-    <h1>螺絲零件管理系統（僅查詢版）</h1>
+    <h1>螺絲零件管理系統</h1>
     <div class="tabs">
         <div class="tab active" onclick="switchTab('inventory')">📦 庫存資料</div>
         <div class="tab" onclick="switchTab('shipments')">🚚 出貨表</div>
@@ -116,29 +116,22 @@
             document.getElementById(tabName).classList.add('active');
         }
 
-        // 載入庫存資料（使用本地 JSON）
+        // 載入庫存資料（直接使用本地 JSON）
         async function loadInventory() {
             const loading = document.getElementById('loading');
             const table = document.getElementById('inventory-table');
             const tbody = table.querySelector('tbody');
 
             try {
-                // 嘗試從本地資料庫獲取
-                const response = await fetch('/api/items');
-                if (response.ok) {
-                    const result = await response.json();
-                    const data = result.data || [];
-                    renderInventory(data);
-                } else {
-                    // 回退方案：直接載入本地 JSON
-                    const fallbackResponse = await fetch('data.json');
-                    const data = await fallbackResponse.json();
-                    renderInventory(data);
-                }
+                const response = await fetch('data.json');
+                if (!response.ok) throw new Error('JSON 檔案不存在');
+                const data = await response.json();
+                renderInventory(data);
             } catch (err) {
                 loading.style.display = 'none';
                 table.style.display = 'none';
                 console.error('載入庫存失敗:', err);
+                tbody.innerHTML = '<tr><td colspan="4">⚠️ 載入失敗，檢查 JSON 檔案</td></tr>';
             }
         }
 
@@ -147,44 +140,42 @@
             const tbody = document.getElementById('inventory-table').querySelector('tbody');
             tbody.innerHTML = '';
 
+            if (!Array.isArray(data)) {
+                tbody.innerHTML = '<tr><td colspan="4">⚠️ 資料格式錯誤</td></tr>';
+                return;
+            }
+
             data.forEach(item => {
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td>${item.規格 || item.part_number || ''}</td>
+                    <td>${item.規格 || item.part_number || item.name || ''}</td>
                     <td>${item.類型 || item.type || ''}</td>
                     <td>${item.材質 || item.material || ''}</td>
-                    <td>${item.數量 || item.stock || ''}</td>
+                    <td>${item.數量 || item.stock || item.quantity || ''}</td>
                 `;
                 tbody.appendChild(row);
             });
 
-            document.getElementById('loading').style.display = 'none';
+            loading.style.display = 'none';
             table.style.display = 'table';
         }
 
-        // 載出入貨資料（使用本地 JSON）
+        // 載出入貨資料（直接使用本地 JSON）
         async function loadShipments() {
             const loading = document.getElementById('loading-shipments');
             const table = document.getElementById('shipments-table');
             const tbody = table.querySelector('tbody');
 
             try {
-                // 嘗試從本地資料庫獲取
-                const response = await fetch('/api/logs');
-                if (response.ok) {
-                    const result = await response.json();
-                    const data = result.data || [];
-                    renderShipments(data);
-                } else {
-                    // 回退方案：直接載入本地 JSON
-                    const fallbackResponse = await fetch('logs.json');
-                    const data = await fallbackResponse.json();
-                    renderShipments(data);
-                }
+                const response = await fetch('logs.json');
+                if (!response.ok) throw new Error('JSON 檔案不存在');
+                const data = await response.json();
+                renderShipments(data);
             } catch (err) {
                 loading.style.display = 'none';
                 table.style.display = 'none';
                 console.error('載出入貨記錄失敗:', err);
+                tbody.innerHTML = '<tr><td colspan="5">⚠️ 載入失敗，檢查 JSON 檔案</td></tr>';
             }
         }
 
@@ -193,19 +184,24 @@
             const tbody = document.getElementById('shipments-table').querySelector('tbody');
             tbody.innerHTML = '';
 
+            if (!Array.isArray(data)) {
+                tbody.innerHTML = '<tr><td colspan="5">⚠️ 資料格式錯誤</td></tr>';
+                return;
+            }
+
             data.forEach(log => {
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td>${log.規格 || log.part_number || ''}</td>
-                    <td>${log.類型 || log.log_type || ''}</td>
-                    <td>${log.數量 || log.quantity || ''}</td>
-                    <td>${log.日期 || log.date || ''}</td>
-                    <td>${log.客戶 || log.customer || ''}</td>
+                    <td>${log.規格 || log.part_number || log.項目 || ''}</td>
+                    <td>${log.類型 || log.log_type || log.type || ''}</td>
+                    <td>${log.數量 || log.quantity || log.stock || ''}</td>
+                    <td>${log.日期 || log.date || log.date || ''}</td>
+                    <td>${log.客戶 || log.customer || log.name || ''}</td>
                 `;
                 tbody.appendChild(row);
             });
 
-            document.getElementById('loading-shipments').style.display = 'none';
+            loading.style.display = 'none';
             table.style.display = 'table';
         }
 
