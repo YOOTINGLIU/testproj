@@ -15,7 +15,8 @@ async function getConnection() {
         const databaseUrl = process.env.DATABASE_URL_Ting || process.env.DATABASE_URL;
 
         if (!databaseUrl) {
-            throw new Error('缺少資料庫連線設定;);
+            throw new Error('缺少資料庫連線設定');
+        }
 
         const [user, rest] = databaseUrl.split('@tcp(')[0].split(':');
         const dbUrl = databaseUrl.split('@tcp(')[1].replace(')', '');
