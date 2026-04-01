@@ -24,7 +24,7 @@
 
 **Environment Variables (測試時先不填)：**
 ```
-DATABASE_URL_Ting = root:drqRB19fy3pa87nUVe6Z4v2IKY50uPAl@tcp(172.235.171.79:30663)/openclaw
+
 ```
 
 **注意：**
