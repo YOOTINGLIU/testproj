@@ -1,5 +1,7 @@
 const express = require('express');
 const mysql = require('mysql2/promise');
+const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -13,13 +15,12 @@ async function getConnection() {
         const databaseUrl = process.env.DATABASE_URL_Ting || process.env.DATABASE_URL;
 
         if (!databaseUrl) {
-            throw new Error('缺少資料庫連線設定');
+            throw new Error('缺少資料庫連線設定;
         }
 
         const [user, rest] = databaseUrl.split('@tcp(')[0].split(':');
         const dbUrl = databaseUrl.split('@tcp(')[1].replace(')', '');
         const [host, port, dbName] = dbUrl.split(':');
-
         const cleanHost = host.replace(/\)?$/, '');
 
         console.log(`連線資料庫: ${cleanHost}:${port}`);
@@ -41,8 +42,7 @@ async function getConnection() {
 app.use(express.json());
 
 app.get('/', (req, res) => {
-    const fs = require('fs');
-    const indexPath = process.join(process.cwd(), 'index.html');
+    const indexPath = path.join(process.cwd(), 'index.html');
 
     if (!fs.existsSync(indexPath)) {
         console.log('檔案不存在:', indexPath);
